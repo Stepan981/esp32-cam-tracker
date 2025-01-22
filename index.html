@@ -44,7 +44,7 @@
         <h2>Camera Dashboard</h2>
         <div id="camera-view">
             <h3>Camera Feed</h3>
-            <img id="camera-feed" src="" alt="Live Camera Feed">
+            <img id="camera-feed" src="http://<ESP32-CAM-IP>/stream" alt="Live Camera Feed">
         </div>
         <div id="camera-settings">
             <h3>Camera Settings</h3>
@@ -64,6 +64,12 @@
 
                 <button type="submit">Save Settings</button>
             </form>
+
+            <div>
+                <button onclick="changeResolution(8)">High Resolution</button>
+                <button onclick="changeResolution(6)">Medium Resolution</button>
+                <button onclick="changeResolution(4)">Low Resolution</button>
+            </div>
         </div>
     </section>
 
