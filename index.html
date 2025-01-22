@@ -21,17 +21,21 @@
             }
         }
 
-        function changeResolution(resolution) {
-            // Handle the resolution change logic
-            const cameraFeed = document.getElementById('camera-feed');
-            if (resolution === 8) {
-                cameraFeed.src = "path_to_high_resolution_feed"; // Update this URL with actual stream URL
-            } else if (resolution === 6) {
-                cameraFeed.src = "path_to_medium_resolution_feed"; // Update with actual stream URL
-            } else if (resolution === 4) {
-                cameraFeed.src = "path_to_low_resolution_feed"; // Update with actual stream URL
-            }
+       <script>
+    function changeResolution(resolution) {
+        const cameraFeed = document.getElementById('camera-feed');
+        
+        // Replace with actual URLs of your ESP32 camera stream
+        if (resolution === 8) {
+            cameraFeed.src = "http://<ESP32_IP>/stream?resolution=high"; // Replace with your high resolution stream URL
+        } else if (resolution === 6) {
+            cameraFeed.src = "http://<ESP32_IP>/stream?resolution=medium"; // Replace with your medium resolution stream URL
+        } else if (resolution === 4) {
+            cameraFeed.src = "http://<ESP32_IP>/stream?resolution=low"; // Replace with your low resolution stream URL
         }
+    }
+</script>
+
     </script>
 </head>
 <body>
