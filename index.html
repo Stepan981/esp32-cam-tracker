@@ -28,10 +28,10 @@
         <h2>Login to Your Account</h2>
         <form id="login-form" onsubmit="login(event)">
             <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
+            <input type="text" id="username" name="muliarskiy" required>
 
             <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
+            <input type="password" id="password" name="1111" required>
 
             <button type="submit">Login</button>
         </form>
@@ -61,7 +61,7 @@
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
 
-            if (username === "admin" && password === "admin") {
+            if (username === "muliarskiy" && password === "1111") {
                 alert("Login successful!");
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
