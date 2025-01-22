@@ -29,10 +29,10 @@
         <h2>Login to Your Account</h2>
         <form id="login-form" action="/dashboard" method="POST">
             <label for="username">Username:</label>
-            <input type="text" id="username" name="muliarskiy" required>
+            <input type="text" id="username" name="username" required>
 
             <label for="password">Password:</label>
-            <input type="password" id="password" name="1234321" required>
+            <input type="password" id="password" name="password" required>
 
             <button type="submit">Login</button>
         </form>
@@ -43,7 +43,7 @@
         <h2>Camera Dashboard</h2>
         <div id="camera-view">
             <h3>Camera Feed</h3>
-            <img id="camera-feed" src="http://192.168.50.225/stream" alt="Live Camera Feed">
+            <img id="camera-feed" src="" alt="Live Camera Feed">
         </div>
         <div id="camera-settings">
             <h3>Camera Settings</h3>
@@ -72,6 +72,33 @@
         </div>
     </section>
 
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const cameraFeed = document.getElementById("camera-feed");
+
+            // Вкажіть IP-адресу вашого ESP32-CAM
+            const esp32CamIP = "http://192.168.50.225";
+            cameraFeed.src = `${esp32CamIP}/stream`;
+
+            // Перевірка статусу камери
+            fetch(`${esp32CamIP}/status`)
+                .then(response => response.json())
+                .then(data => console.log("Camera status:", data))
+                .catch(err => console.error("Error connecting to ESP32-CAM:", err));
+        });
+
+        function changeResolution(resolution) {
+            const esp32CamIP = "http://192.168.50.225";
+            fetch(`${esp32CamIP}/control?var=framesize&val=${resolution}`)
+                .then(response => {
+                    if (response.ok) {
+                        alert("Resolution changed!");
+                    } else {
+                        alert("Failed to change resolution");
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+    </script>
 </body>
 </html>
