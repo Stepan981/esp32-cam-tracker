@@ -37,23 +37,22 @@
         </form>
     </section>
 
-    <section id="dashboard" style="display:none;">
-        <h2>Camera Dashboard</h2>
-        <div id="camera-view">
-            <h3>Camera Feed</h3>
-            <img id="camera-feed" src="" alt="Live Camera Feed">
+   <section id="dashboard" style="display:none;">
+    <h2>Camera Dashboard</h2>
+    <div id="camera-view">
+        <h3>Camera Feed</h3>
+        <!-- Потік відео з ESP32-CAM -->
+        <img id="camera-feed" src="" alt="Live Camera Feed" style="width: 100%; max-width: 640px; height: auto;">
+    </div>
+    <div id="camera-settings">
+        <h3>Camera Settings</h3>
+        <div>
+            <button onclick="changeResolution(8)">High Resolution</button>
+            <button onclick="changeResolution(6)">Medium Resolution</button>
+            <button onclick="changeResolution(4)">Low Resolution</button>
         </div>
-        <div id="camera-settings">
-            <h3>Camera Settings</h3>
-            <div>
-                <button onclick="changeResolution(8)">High Resolution</button>
-                <button onclick="changeResolution(6)">Medium Resolution</button>
-                <button onclick="changeResolution(4)">Low Resolution</button>
-            </div>
-        </div>
-    </section>
-
-    <script>
+    </div>
+</section>
         const esp32CamIP = "http://192.168.50.225";
 
         function login(event) {
