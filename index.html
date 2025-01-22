@@ -24,21 +24,19 @@
         </section>
     </main>
 
-    <!-- Login Page -->
     <section id="login">
         <h2>Login to Your Account</h2>
-        <form id="login-form">
+        <form id="login-form" onsubmit="login(event)">
             <label for="username">Username:</label>
-            <input type="text" id="username" name="muliarskiy" required>
+            <input type="text" id="username" name="username" required>
 
             <label for="password">Password:</label>
-            <input type="password" id="password" name="1111" required>
+            <input type="password" id="password" name="password" required>
 
-            <button type="submit" onclick="login(event)">Login</button>
+            <button type="submit">Login</button>
         </form>
     </section>
 
-    <!-- Dashboard -->
     <section id="dashboard" style="display:none;">
         <h2>Camera Dashboard</h2>
         <div id="camera-view">
@@ -58,13 +56,11 @@
     <script>
         const esp32CamIP = "http://192.168.50.225";
 
-        // Авторизація
         function login(event) {
             event.preventDefault();
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
 
-            // Простий приклад перевірки
             if (username === "admin" && password === "admin") {
                 alert("Login successful!");
                 document.getElementById("login").style.display = "none";
@@ -75,7 +71,6 @@
             }
         }
 
-        // Зміна роздільної здатності камери
         function changeResolution(resolution) {
             fetch(`${esp32CamIP}/control?var=framesize&val=${resolution}`)
                 .then(response => {
