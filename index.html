@@ -5,6 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 Cam Tracker</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        function login(event) {
+            event.preventDefault();
+
+            // Basic authentication check (for demonstration purposes)
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (username === 'user' && password === '1234') {
+                document.getElementById('login').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            } else {
+                alert('Invalid login credentials!');
+            }
+        }
+
+        function changeResolution(resolution) {
+            // Handle the resolution change logic
+            const cameraFeed = document.getElementById('camera-feed');
+            if (resolution === 8) {
+                cameraFeed.src = "path_to_high_resolution_feed"; // Update this URL with actual stream URL
+            } else if (resolution === 6) {
+                cameraFeed.src = "path_to_medium_resolution_feed"; // Update with actual stream URL
+            } else if (resolution === 4) {
+                cameraFeed.src = "path_to_low_resolution_feed"; // Update with actual stream URL
+            }
+        }
+    </script>
 </head>
 <body>
     <header>
@@ -28,30 +56,29 @@
         <h2>Login to Your Account</h2>
         <form id="login-form" onsubmit="login(event)">
             <label for="username">Username:</label>
-            <input type="text" id="username" name="muliarskiy" required>
+            <input type="text" id="username" name="username" required>
 
             <label for="password">Password:</label>
-            <input type="password" id="password" name="1111" required>
+            <input type="password" id="password" name="password" required>
 
             <button type="submit">Login</button>
         </form>
     </section>
 
-   <section id="dashboard" style="display:none;">
-    <h2>Camera Dashboard</h2>
-    <div id="camera-view">
-        <h3>Camera Feed</h3>
-        <!-- Потік відео з ESP32-CAM -->
-        <img id="camera-feed" src="" alt="Live Camera Feed" style="width: 100%; max-width: 640px; height: auto;">
-    </div>
-    <div id="camera-settings">
-        <h3>Camera Settings</h3>
-        <div>
-            <button onclick="changeResolution(8)">High Resolution</button>
-            <button onclick="changeResolution(6)">Medium Resolution</button>
-            <button onclick="changeResolution(4)">Low Resolution</button>
+    <section id="dashboard" style="display:none;">
+        <h2>Camera Dashboard</h2>
+        <div id="camera-view">
+            <h3>Camera Feed</h3>
+            <img id="camera-feed" src="" alt="Live Camera Feed" style="width: 100%; max-width: 640px; height: auto;">
         </div>
-    </div>
-</section>
+        <div id="camera-settings">
+            <h3>Camera Settings</h3>
+            <div>
+                <button onclick="changeResolution(8)">High Resolution</button>
+                <button onclick="changeResolution(6)">Medium Resolution</button>
+                <button onclick="changeResolution(4)">Low Resolution</button>
+            </div>
+        </div>
+    </section>
 </body>
 </html>
