@@ -17,7 +17,11 @@
             if (username === 'muliarskiy' && password === '1234') {
                 document.getElementById('login').style.display = 'none';  // Hide login section
                 document.getElementById('camera-dashboard').style.display = 'block';  // Show camera dashboard
-                document.getElementById('camera-feed').src = "http://192.168.50.225:81/stream";  // Replace with your ESP32 camera stream URL
+                
+                // Start camera stream
+                const videoElement = document.getElementById('camera-feed');
+                videoElement.src = "http://192.168.50.225:81/stream"; // Replace with your ESP32-CAM stream URL
+                videoElement.play();
             } else {
                 alert('Invalid login credentials!');
             }
@@ -25,16 +29,18 @@
 
         // Change camera stream resolution
         function changeResolution(resolution) {
-            const cameraFeed = document.getElementById('camera-feed');
             const baseURL = "http://192.168.50.225"; // Replace with your ESP32-CAM's IP
+            const videoElement = document.getElementById('camera-feed');
 
             if (resolution === 8) {
-                cameraFeed.src = `${baseURL}/stream?resolution=high`;
+                videoElement.src = `${baseURL}/stream?resolution=high`;
             } else if (resolution === 6) {
-                cameraFeed.src = `${baseURL}/stream?resolution=medium`;
+                videoElement.src = `${baseURL}/stream?resolution=medium`;
             } else if (resolution === 4) {
-                cameraFeed.src = `${baseURL}/stream?resolution=low`;
+                videoElement.src = `${baseURL}/stream?resolution=low`;
             }
+
+            videoElement.play(); // Restart video playback with the new resolution
         }
     </script>
 </head>
@@ -78,7 +84,9 @@
         <h2>Camera Dashboard</h2>
         <div id="camera-view">
             <h3>Camera Feed</h3>
-            <img id="camera-feed" src="" alt="Live Camera Feed" style="width: 100%; max-width: 640px; height: auto;">
+            <video id="camera-feed" autoplay muted controls style="width: 100%; max-width: 640px; height: auto;">
+                Your browser does not support the video tag.
+            </video>
         </div>
         <div id="camera-settings">
             <h3>Camera Settings</h3>
