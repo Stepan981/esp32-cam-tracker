@@ -10,14 +10,14 @@
         function login(event) {
             event.preventDefault();
 
-            // Example hardcoded credentials for login (for demo purposes)
+            // Fixed credentials for login
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            if (username === 'user' && password === '1234') {
+            if (username === 'muliarskiy' && password === '1234') {
                 document.getElementById('login').style.display = 'none';  // Hide login section
                 document.getElementById('camera-dashboard').style.display = 'block';  // Show camera dashboard
-                document.getElementById('camera-feed').src = "http://192.168.50.225";  // Replace with your ESP32 camera stream URL
+                document.getElementById('camera-feed').src = "http://192.168.50.225/stream";  // Replace with your ESP32 camera stream URL
             } else {
                 alert('Invalid login credentials!');
             }
@@ -27,11 +27,11 @@
         function changeResolution(resolution) {
             const cameraFeed = document.getElementById('camera-feed');
             if (resolution === 8) {
-                cameraFeed.src = "http://<ESP32_IP>/stream?resolution=high";  // Replace with actual high resolution stream URL
+                cameraFeed.src = "http://192.168.50.225/stream?resolution=high";  // Replace with actual high resolution stream URL
             } else if (resolution === 6) {
-                cameraFeed.src = "http://<ESP32_IP>/stream?resolution=medium";  // Replace with actual medium resolution stream URL
+                cameraFeed.src = "http://192.168.50.225/stream?resolution=medium";  // Replace with actual medium resolution stream URL
             } else if (resolution === 4) {
-                cameraFeed.src = "http://<ESP32_IP>/stream?resolution=low";  // Replace with actual low resolution stream URL
+                cameraFeed.src = "http://192.168.50.225/stream?resolution=low";  // Replace with actual low resolution stream URL
             }
         }
     </script>
