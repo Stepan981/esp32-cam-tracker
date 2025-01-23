@@ -26,12 +26,14 @@
         // Change camera stream resolution
         function changeResolution(resolution) {
             const cameraFeed = document.getElementById('camera-feed');
+            const baseURL = "http://192.168.50.225"; // Replace with your ESP32-CAM's IP
+
             if (resolution === 8) {
-                cameraFeed.src = "http://192.168.50.225/stream?resolution=high";  // Replace with actual high resolution stream URL
+                cameraFeed.src = `${baseURL}/stream?resolution=high`;
             } else if (resolution === 6) {
-                cameraFeed.src = "http://192.168.50.225/stream?resolution=medium";  // Replace with actual medium resolution stream URL
+                cameraFeed.src = `${baseURL}/stream?resolution=medium`;
             } else if (resolution === 4) {
-                cameraFeed.src = "http://192.168.50.225/stream?resolution=low";  // Replace with actual low resolution stream URL
+                cameraFeed.src = `${baseURL}/stream?resolution=low`;
             }
         }
     </script>
@@ -90,3 +92,4 @@
 
 </body>
 </html>
+
