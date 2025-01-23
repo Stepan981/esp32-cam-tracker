@@ -17,7 +17,7 @@
             if (username === 'muliarskiy' && password === '1234') {
                 document.getElementById('login').style.display = 'none';  // Hide login section
                 document.getElementById('camera-dashboard').style.display = 'block';  // Show camera dashboard
-                document.getElementById('camera-feed').src = "http://192.168.50.225/stream";  // Replace with your ESP32 camera stream URL
+                document.getElementById('camera-feed').src = "http://192.168.50.225:81/stream";  // Replace with your ESP32 camera stream URL
             } else {
                 alert('Invalid login credentials!');
             }
