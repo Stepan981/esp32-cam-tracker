@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 Cam Tracker</title>
-    <link rel="stylesheet" href="styles.css">
     <script>
         // Handle login form submission
         function login(event) {
@@ -17,56 +16,21 @@
             if (username === 'muliarskiy' && password === '1234') {
                 document.getElementById('login').style.display = 'none';  // Hide login section
                 document.getElementById('camera-dashboard').style.display = 'block';  // Show camera dashboard
-                
+
                 // Start camera stream
                 const videoElement = document.getElementById('camera-feed');
                 videoElement.src = "http://192.168.50.225:81/stream"; // Replace with your ESP32-CAM stream URL
+                videoElement.load();
                 videoElement.play();
             } else {
                 alert('Invalid login credentials!');
             }
         }
-
-        // Change camera stream resolution
-        function changeResolution(resolution) {
-            const baseURL = "http://192.168.50.225"; // Replace with your ESP32-CAM's IP
-            const videoElement = document.getElementById('camera-feed');
-
-            if (resolution === 8) {
-                videoElement.src = `${baseURL}/stream?resolution=high`;
-            } else if (resolution === 6) {
-                videoElement.src = `${baseURL}/stream?resolution=medium`;
-            } else if (resolution === 4) {
-                videoElement.src = `${baseURL}/stream?resolution=low`;
-            }
-
-            videoElement.play(); // Restart video playback with the new resolution
-        }
     </script>
 </head>
 <body>
-    <!-- Header -->
-    <header>
-        <h1>Welcome to ESP32 Cam Tracker</h1>
-        <nav>
-            <ul>
-                <li><a href="#home">Home</a></li>
-                <li><a href="#login">Login</a></li>
-            </ul>
-        </nav>
-    </header>
-
-    <!-- Main Home Section -->
-    <main id="home">
-        <section>
-            <h2>Track and Manage Your ESP32 Cam</h2>
-            <p>This application allows you to view and control your ESP32 Cam remotely.</p>
-            <button onclick="document.getElementById('login').style.display='block';">Login to Your Account</button>
-        </section>
-    </main>
-
     <!-- Login Section -->
-    <section id="login" style="display:none;">
+    <section id="login">
         <h2>Login to Your Account</h2>
         <form id="login-form" onsubmit="login(event)">
             <label for="username">Username:</label>
@@ -79,25 +43,18 @@
         </form>
     </section>
 
-    <!-- Camera Dashboard (Hidden by Default) -->
+    <!-- Camera Dashboard -->
     <section id="camera-dashboard" style="display:none;">
         <h2>Camera Dashboard</h2>
         <div id="camera-view">
             <h3>Camera Feed</h3>
             <video id="camera-feed" autoplay muted controls style="width: 100%; max-width: 640px; height: auto;">
+                <source src="" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
         </div>
-        <div id="camera-settings">
-            <h3>Camera Settings</h3>
-            <div>
-                <button onclick="changeResolution(8)">High Resolution</button>
-                <button onclick="changeResolution(6)">Medium Resolution</button>
-                <button onclick="changeResolution(4)">Low Resolution</button>
-            </div>
-        </div>
     </section>
-
 </body>
 </html>
+
 
