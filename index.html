@@ -3,57 +3,519 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Cam Tracker</title>
-    <script>
-        // Handle login form submission
-        function login(event) {
-            event.preventDefault();
-
-            // Fixed credentials for login
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            if (username === 'muliarskiy' && password === '1234') {
-                document.getElementById('login').style.display = 'none';  // Hide login section
-                document.getElementById('camera-dashboard').style.display = 'block';  // Show camera dashboard
-
-                // Start camera stream
-                const videoElement = document.getElementById('camera-feed');
-                videoElement.src = "C:\Users\Admin\Videos\Counter-strike 2\Counter-strike 2 2025.02.06 - 17.36.17.01.mp4"; // Replace with your ESP32-CAM stream URL
-                videoElement.load();
-                videoElement.play();
-            } else {
-                alert('Invalid login credentials!');
-            }
+    <title>ESP32-CAM Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .camera-feed {
+            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
-    </script>
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
 </head>
-<body>
-    <!-- Login Section -->
-    <section id="login">
-        <h2>Login to Your Account</h2>
-        <form id="login-form" onsubmit="login(event)">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-
-            <button type="submit">Login</button>
-        </form>
-    </section>
-
-    <!-- Camera Dashboard -->
-    <section id="camera-dashboard" style="display:none;">
-        <h2>Camera Dashboard</h2>
-        <div id="camera-view">
-            <h3>Camera Feed</h3>
-            <video id="camera-feed" autoplay muted controls style="width: 100%; max-width: 640px; height: auto;">
-                <source src="" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Login Screen (default view) -->
+    <div id="login-screen" class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-md slide-in">
+            <div class="bg-blue-600 py-6 px-8 text-white">
+                <h1 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-camera mr-3"></i>
+                    ESP32-CAM Tracker
+                </h1>
+                <p class="text-blue-100 mt-1">Monitor your cameras from anywhere</p>
+            </div>
+            
+            <div class="p-8">
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="email" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="password" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                        </div>
+                        
+                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800">Forgot password?</a>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Sign In
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-600">Don't have an account? 
+                        <a href="#" id="register-link" class="text-blue-600 hover:text-blue-800 font-medium">Register</a>
+                    </p>
+                </div>
+            </div>
         </div>
-    </section>
+    </div>
+    
+    <!-- Registration Screen (hidden by default) -->
+    <div id="register-screen" class="hidden items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-md slide-in">
+            <div class="bg-blue-600 py-6 px-8 text-white">
+                <h1 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-user-plus mr-3"></i>
+                    Create Account
+                </h1>
+                <p class="text-blue-100 mt-1">Get started with ESP32-CAM Tracker</p>
+            </div>
+            
+            <div class="p-8">
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label for="reg-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                        <input type="text" id="reg-name" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label for="reg-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="reg-email" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label for="reg-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="reg-password" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label for="reg-confirm" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <input type="password" id="reg-confirm" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="terms" required class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="terms" class="ml-2 block text-sm text-gray-700">
+                            I agree to the <a href="#" class="text-blue-600 hover:text-blue-800">Terms of Service</a>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center mt-4">
+                        <i class="fas fa-user-plus mr-2"></i> Register
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-600">Already have an account? 
+                        <a href="#" id="login-link" class="text-blue-600 hover:text-blue-800 font-medium">Sign In</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard (hidden by default) -->
+    <div id="dashboard" class="hidden min-h-screen">
+        <!-- Sidebar -->
+        <div class="bg-gray-800 text-white w-64 fixed h-full overflow-y-auto">
+            <div class="p-4 flex items-center space-x-3 border-b border-gray-700">
+                <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                    <i class="fas fa-user text-xl"></i>
+                </div>
+                <div>
+                    <p class="font-medium" id="username-display">User Name</p>
+                    <p class="text-xs text-gray-400">Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="p-4 space-y-2">
+                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg bg-gray-700 text-white">
+                    <i class="fas fa-tv w-5"></i>
+                    <span>Camera Feed</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
+                    <i class="fas fa-history w-5"></i>
+                    <span>History</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
+                    <i class="fas fa-bell w-5"></i>
+                    <span>Notifications</span>
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
+                    <i class="fas fa-sign-out-alt w-5"></i>
+                    <span>Logout</span>
+                </a>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-700 mt-auto">
+                <div class="text-xs text-gray-400 mb-2">CONNECTED DEVICES</div>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg bg-gray-700">
+                        <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                            <i class="fas fa-wifi text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium">ESP32-CAM #1</p>
+                            <p class="text-xs text-gray-400">Online</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 p-2 rounded-lg">
+                        <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+                            <i class="fas fa-wifi text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium">ESP32-CAM #2</p>
+                            <p class="text-xs text-gray-400">Offline</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="ml-64 p-8">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-tv mr-3 text-blue-600"></i>
+                    Camera Feed
+                </h1>
+                <div class="flex space-x-3">
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center">
+                        <i class="fas fa-sync-alt mr-2"></i> Refresh
+                    </button>
+                    <button class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center">
+                        <i class="fas fa-cog mr-2"></i> Settings
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Camera Feed Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Camera View -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 class="font-medium text-gray-800 flex items-center">
+                            <i class="fas fa-camera mr-2 text-blue-600"></i>
+                            ESP32-CAM #1 - Living Room
+                        </h2>
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-white mr-1"></span>
+                                Live
+                            </span>
+                            <span class="text-xs text-gray-500">Last updated: <span id="last-update">Just now</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="camera-feed aspect-video flex items-center justify-center relative">
+                        <img id="camera-image" src="" alt="Camera Feed" class="max-w-full max-h-full hidden">
+                        <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                        <div id="error-message" class="hidden absolute inset-0 flex items-center justify-center bg-red-50">
+                            <div class="text-center p-4">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+                                <p class="text-red-600 font-medium">Failed to load camera feed</p>
+                                <button class="mt-3 text-blue-600 hover:text-blue-800">Retry</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border-t border-gray-200 flex justify-between items-center">
+                        <div class="flex space-x-2">
+                            <button class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <button class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
+                                <i class="fas fa-video"></i>
+                            </button>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            Resolution: 640x480 | FPS: 15
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Camera Controls -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden h-fit">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="font-medium text-gray-800 flex items-center">
+                            <i class="fas fa-sliders-h mr-2 text-blue-600"></i>
+                            Camera Controls
+                        </h2>
+                    </div>
+                    
+                    <div class="p-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Brightness</label>
+                            <input type="range" min="0" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Contrast</label>
+                            <input type="range" min="0" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Resolution</label>
+                            <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                                <option>640x480</option>
+                                <option>320x240</option>
+                                <option>160x120</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Quality</label>
+                            <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                                <option>High (10 fps)</option>
+                                <option>Medium (20 fps)</option>
+                                <option>Low (30 fps)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="pt-2">
+                            <button class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
+                                <i class="fas fa-save mr-2"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Event Log -->
+                <div class="lg:col-span-3 bg-white rounded-xl shadow-md overflow-hidden mt-6">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="font-medium text-gray-800 flex items-center">
+                            <i class="fas fa-list-ul mr-2 text-blue-600"></i>
+                            Recent Events
+                        </h2>
+                    </div>
+                    
+                    <div class="divide-y divide-gray-200">
+                        <div class="p-4 flex items-start hover:bg-gray-50">
+                            <div class="bg-green-100 text-green-800 p-2 rounded-full mr-3">
+                                <i class="fas fa-motion-detected text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium">Motion detected</p>
+                                <p class="text-sm text-gray-600">Living Room - 2 minutes ago</p>
+                            </div>
+                            <button class="text-blue-600 hover:text-blue-800 text-sm">View</button>
+                        </div>
+                        
+                        <div class="p-4 flex items-start hover:bg-gray-50">
+                            <div class="bg-blue-100 text-blue-800 p-2 rounded-full mr-3">
+                                <i class="fas fa-camera text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium">Snapshot captured</p>
+                                <p class="text-sm text-gray-600">Front Door - 15 minutes ago</p>
+                            </div>
+                            <button class="text-blue-600 hover:text-blue-800 text-sm">View</button>
+                        </div>
+                        
+                        <div class="p-4 flex items-start hover:bg-gray-50">
+                            <div class="bg-yellow-100 text-yellow-800 p-2 rounded-full mr-3">
+                                <i class="fas fa-exclamation-triangle text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium">Low battery warning</p>
+                                <p class="text-sm text-gray-600">Backyard Camera - 1 hour ago</p>
+                            </div>
+                            <button class="text-blue-600 hover:text-blue-800 text-sm">Dismiss</button>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border-t border-gray-200 text-center">
+                        <button class="text-blue-600 hover:text-blue-800 font-medium">View All Events</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const registerScreen = document.getElementById('register-screen');
+        const dashboard = document.getElementById('dashboard');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const registerLink = document.getElementById('register-link');
+        const loginLink = document.getElementById('login-link');
+        const logoutBtn = document.getElementById('logout-btn');
+        const usernameDisplay = document.getElementById('username-display');
+        const cameraImage = document.getElementById('camera-image');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const errorMessage = document.getElementById('error-message');
+        const lastUpdate = document.getElementById('last-update');
+        
+        // Toggle between login and register screens
+        registerLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginScreen.classList.add('hidden');
+            registerScreen.classList.remove('hidden');
+            registerScreen.classList.add('flex');
+        });
+        
+        loginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            registerScreen.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+        });
+        
+        // Login handler
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Simple validation
+            if (!email || !password) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            // Simulate login process
+            loginScreen.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            
+            // Set username
+            usernameDisplay.textContent = email.split('@')[0];
+            
+            // Start camera feed simulation
+            simulateCameraFeed();
+        });
+        
+        // Register handler
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+            
+            // Simple validation
+            if (!name || !email || !password || !confirm) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            if (password !== confirm) {
+                alert('Passwords do not match');
+                return;
+            }
+            
+            // Simulate registration process
+            alert(`Account created for ${name}! You can now login.`);
+            registerScreen.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+            
+            // Pre-fill login form
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = password;
+        });
+        
+        // Logout handler
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            dashboard.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+            
+            // Clear form fields
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        });
+        
+        // Simulate camera feed updates
+        function simulateCameraFeed() {
+            let updateCount = 0;
+            
+            function updateFeed() {
+                loadingSpinner.classList.remove('hidden');
+                cameraImage.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                
+                // Simulate network delay
+                setTimeout(() => {
+                    // 90% chance of success, 10% chance of error (for demo)
+                    if (Math.random() > 0.1) {
+                        // Random image from placeholder service with timestamp to prevent caching
+                        cameraImage.src = `https://picsum.photos/640/480?random=${Date.now()}`;
+                        cameraImage.onload = () => {
+                            loadingSpinner.classList.add('hidden');
+                            cameraImage.classList.remove('hidden');
+                            
+                            // Update timestamp
+                            updateCount++;
+                            const minutes = updateCount % 60;
+                            lastUpdate.textContent = minutes === 0 ? 'Just now' : `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+                        };
+                    } else {
+                        // Simulate error
+                        loadingSpinner.classList.add('hidden');
+                        errorMessage.classList.remove('hidden');
+                    }
+                }, 800);
+            }
+            
+            // Initial load
+            updateFeed();
+            
+            // Update every 5 seconds
+            setInterval(updateFeed, 5000);
+            
+            // Handle retry button
+            errorMessage.querySelector('button').addEventListener('click', updateFeed);
+        }
+        
+        // Add animation to login/register forms when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const forms = document.querySelectorAll('form');
+            forms.forEach((form, index) => {
+                form.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+    </script>
 </body>
 </html>
 
