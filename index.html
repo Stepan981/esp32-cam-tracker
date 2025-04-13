@@ -672,7 +672,7 @@
                 // 85% chance of success, 15% chance of error (for demo)
                 if (Math.random() > 0.15) {
                     // Success - update image
-                    cameraImage.src = `http://192.168.50.112:81/stream;
+                    cameraImage.src = `http://192.168.1.102:81/stream;
                     cameraImage.onload = () => {
                         loadingSpinner.classList.add('hidden');
                         cameraImage.classList.remove('hidden');
