@@ -672,7 +672,7 @@
                 // 85% chance of success, 15% chance of error (for demo)
                 if (Math.random() > 0.15) {
                     // Success - update image
-                    cameraImage.src = `https://picsum.photos/640/480?random=${Date.now()}`;
+                    cameraImage.src = `http://192.168.50.112:81/stream;
                     cameraImage.onload = () => {
                         loadingSpinner.classList.add('hidden');
                         cameraImage.classList.remove('hidden');
