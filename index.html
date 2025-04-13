@@ -1,747 +1,443 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32-CAM Tracker</title>
+    <title>ESP32-CAM Video Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .camera-feed {
-            background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
-                               linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
-                               linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
-                               linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            overflow: hidden;
+            background: #000;
         }
-        
-        .pulse-animation {
-            animation: pulse 2s infinite;
+        .video-container iframe,
+        .video-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .auth-form {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
         }
-        
-        .slide-in {
-            animation: slideIn 0.3s ease-out forwards;
+        .sidebar {
+            transition: all 0.3s ease;
         }
-        
-        @keyframes slideIn {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                z-index: 50;
+                height: 100vh;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <!-- Login Screen (default view) -->
-    <div id="login-screen" class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-md slide-in">
-            <div class="bg-blue-600 py-6 px-8 text-white">
-                <h1 class="text-2xl font-bold flex items-center">
-                    <i class="fas fa-camera mr-3"></i>
-                    ESP32-CAM Tracker
-                </h1>
-                <p class="text-blue-100 mt-1">Monitor your cameras from anywhere</p>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Mobile Menu Button -->
+    <button id="menuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-blue-600 p-2 rounded-lg">
+        <i class="fas fa-bars text-white"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar bg-gray-800 w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 md:relative">
+        <div class="flex items-center space-x-2 px-4">
+            <i class="fas fa-camera text-blue-500 text-2xl"></i>
+            <h1 class="text-xl font-bold">ESP32-CAM Tracker</h1>
+        </div>
+        
+        <nav>
+            <div id="guestLinks" class="px-4">
+                <a href="#" onclick="showAuthForm('login')" class="flex items-center space-x-2 py-2 px-4 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-sign-in-alt text-blue-400"></i>
+                    <span>Увійти</span>
+                </a>
+                <a href="#" onclick="showAuthForm('register')" class="flex items-center space-x-2 py-2 px-4 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-user-plus text-green-400"></i>
+                    <span>Реєстрація</span>
+                </a>
             </div>
             
-            <div class="p-8">
-                <form id="login-form" class="space-y-6">
+            <div id="userLinks" class="px-4 hidden">
+                <a href="#" class="flex items-center space-x-2 py-2 px-4 rounded-lg bg-gray-700">
+                    <i class="fas fa-video text-blue-400"></i>
+                    <span>Моніторинг</span>
+                </a>
+                <a href="#" class="flex items-center space-x-2 py-2 px-4 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-history text-yellow-400"></i>
+                    <span>Архів</span>
+                </a>
+                <a href="#" class="flex items-center space-x-2 py-2 px-4 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-cog text-gray-400"></i>
+                    <span>Налаштування</span>
+                </a>
+                <a href="#" onclick="logout()" class="flex items-center space-x-2 py-2 px-4 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt text-red-400"></i>
+                    <span>Вийти</span>
+                </a>
+            </div>
+        </nav>
+        
+        <div class="px-4">
+            <h3 class="text-sm uppercase text-gray-500 mb-2">Камери</h3>
+            <div id="cameraList" class="space-y-1">
+                <!-- Cameras will be added dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="md:ml-64 p-4">
+        <!-- Auth Forms Overlay -->
+        <div id="authOverlay" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center hidden">
+            <div class="auth-form rounded-xl p-8 w-full max-w-md relative">
+                <button onclick="hideAuthForm()" class="absolute top-4 right-4 text-gray-300 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <!-- Login Form -->
+                <div id="loginForm" class="space-y-4">
+                    <h2 class="text-2xl font-bold text-center mb-6">Увійти в систему</h2>
                     <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input type="email" id="email" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        <label class="block text-sm font-medium mb-1">Електронна пошта</label>
+                        <input type="email" id="loginEmail" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Пароль</label>
+                        <input type="password" id="loginPassword" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium transition duration-200">
+                        Увійти
+                    </button>
+                    <p class="text-center text-sm text-gray-300">
+                        Немає акаунта? <a href="#" onclick="showAuthForm('register')" class="text-blue-400 hover:underline">Зареєструватись</a>
+                    </p>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="registerForm" class="space-y-4 hidden">
+                    <h2 class="text-2xl font-bold text-center mb-6">Створити акаунт</h2>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Ім'я</label>
+                        <input type="text" id="registerName" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Електронна пошта</label>
+                        <input type="email" id="registerEmail" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Пароль</label>
+                        <input type="password" id="registerPassword" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Підтвердіть пароль</label>
+                        <input type="password" id="registerConfirmPassword" class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button onclick="register()" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium transition duration-200">
+                        Зареєструватись
+                    </button>
+                    <p class="text-center text-sm text-gray-300">
+                        Вже маєте акаунт? <a href="#" onclick="showAuthForm('login')" class="text-blue-400 hover:underline">Увійти</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 id="pageTitle" class="text-2xl font-bold">Моніторинг камер</h2>
+                <p id="statusText" class="text-gray-400 text-sm">Будь ласка, увійдіть для перегляду</p>
+            </div>
+            <div id="userInfo" class="hidden flex items-center space-x-2 bg-gray-800 px-4 py-2 rounded-lg">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <i class="fas fa-user"></i>
+                </div>
+                <span id="userName">Користувач</span>
+            </div>
+        </div>
+
+        <!-- Video Content -->
+        <div id="videoContent" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-xl overflow-hidden">
+                    <div class="video-container">
+                        <img id="cameraFeed" src="https://via.placeholder.com/800x450?text=ESP32-CAM+Feed" alt="Camera Feed">
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-medium text-lg mb-2">Основна камера</h3>
+                        <div class="flex space-x-2">
+                            <button class="bg-blue-600 hover:bg-blue-700 px-4 py-1 rounded-lg">
+                                <i class="fas fa-expand mr-1"></i> На весь екран
+                            </button>
+                            <button class="bg-gray-700 hover:bg-gray-600 px-4 py-1 rounded-lg">
+                                <i class="fas fa-camera mr-1"></i> Зробити знімок
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-800 rounded-xl p-4">
+                    <h3 class="font-medium text-lg mb-4">Керування камерою</h3>
+                    <div class="grid grid-cols-3 gap-3 mb-6">
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-home"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-lightbulb"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
+                            <i class="fas fa-cog"></i>
+                        </button>
                     </div>
                     
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input type="password" id="password" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    </div>
-                    
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <input type="checkbox" id="remember" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Якість відео</label>
+                            <select class="w-full bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option>Висока (1080p)</option>
+                                <option selected>Середня (720p)</option>
+                                <option>Низька (480p)</option>
+                            </select>
                         </div>
                         
-                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800">Forgot password?</a>
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
-                        <i class="fas fa-sign-in-alt mr-2"></i> Sign In
-                    </button>
-                </form>
-                
-                <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">Don't have an account? 
-                        <a href="#" id="register-link" class="text-blue-600 hover:text-blue-800 font-medium">Register</a>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Registration Screen (hidden by default) -->
-    <div id="register-screen" class="hidden items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-md slide-in">
-            <div class="bg-blue-600 py-6 px-8 text-white">
-                <h1 class="text-2xl font-bold flex items-center">
-                    <i class="fas fa-user-plus mr-3"></i>
-                    Create Account
-                </h1>
-                <p class="text-blue-100 mt-1">Get started with ESP32-CAM Tracker</p>
-            </div>
-            
-            <div class="p-8">
-                <form id="register-form" class="space-y-4">
-                    <div>
-                        <label for="reg-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                        <input type="text" id="reg-name" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    </div>
-                    
-                    <div>
-                        <label for="reg-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input type="email" id="reg-email" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    </div>
-                    
-                    <div>
-                        <label for="reg-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input type="password" id="reg-password" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    </div>
-                    
-                    <div>
-                        <label for="reg-confirm" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                        <input type="password" id="reg-confirm" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    </div>
-                    
-                    <div class="flex items-center">
-                        <input type="checkbox" id="terms" required class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="terms" class="ml-2 block text-sm text-gray-700">
-                            I agree to the <a href="#" class="text-blue-600 hover:text-blue-800">Terms of Service</a>
-                        </label>
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center mt-4">
-                        <i class="fas fa-user-plus mr-2"></i> Register
-                    </button>
-                </form>
-                
-                <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">Already have an account? 
-                        <a href="#" id="login-link" class="text-blue-600 hover:text-blue-800 font-medium">Sign In</a>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dashboard (hidden by default) -->
-    <div id="dashboard" class="hidden min-h-screen">
-        <!-- Sidebar -->
-        <div class="bg-gray-800 text-white w-64 fixed h-full overflow-y-auto">
-            <div class="p-4 flex items-center space-x-3 border-b border-gray-700">
-                <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
-                    <i class="fas fa-user text-xl"></i>
-                </div>
-                <div>
-                    <p class="font-medium" id="username-display">User Name</p>
-                    <p class="text-xs text-gray-400">Premium Member</p>
-                </div>
-            </div>
-            
-            <nav class="p-4 space-y-2">
-                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg bg-gray-700 text-white">
-                    <i class="fas fa-tv w-5"></i>
-                    <span>Camera Feed</span>
-                </a>
-                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
-                    <i class="fas fa-history w-5"></i>
-                    <span>History</span>
-                </a>
-                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
-                    <i class="fas fa-cog w-5"></i>
-                    <span>Settings</span>
-                </a>
-                <a href="#" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
-                    <i class="fas fa-bell w-5"></i>
-                    <span>Notifications</span>
-                </a>
-                <a href="#" id="logout-btn" class="flex items-center space-x-3 p-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
-                    <i class="fas fa-sign-out-alt w-5"></i>
-                    <span>Logout</span>
-                </a>
-            </nav>
-            
-            <div class="p-4 border-t border-gray-700 mt-auto">
-                <div class="text-xs text-gray-400 mb-2">CONNECTED DEVICES</div>
-                <div class="space-y-2">
-                    <div class="flex items-center space-x-3 p-2 rounded-lg bg-gray-700">
-                        <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                            <i class="fas fa-wifi text-xs"></i>
-                        </div>
                         <div>
-                            <p class="text-sm font-medium">ESP32-CAM #1</p>
-                            <p class="text-xs text-gray-400">Online</p>
+                            <label class="block text-sm font-medium mb-1">Розмір кадру (мс)</label>
+                            <input type="range" min="100" max="5000" value="1000" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                         </div>
                     </div>
-                    <div class="flex items-center space-x-3 p-2 rounded-lg">
-                        <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
-                            <i class="fas fa-wifi text-xs"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium">ESP32-CAM #2</p>
-                            <p class="text-xs text-gray-400">Offline</p>
-                        </div>
+                </div>
+            </div>
+            
+            <div class="mt-8">
+                <h3 class="font-medium text-lg mb-4">Останні знімки</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://via.placeholder.com/300x200?text=Snapshot+1" alt="Snapshot" class="w-full h-32 object-cover">
+                        <div class="p-2 text-xs text-gray-400">12.05.2023 14:30</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://via.placeholder.com/300x200?text=Snapshot+2" alt="Snapshot" class="w-full h-32 object-cover">
+                        <div class="p-2 text-xs text-gray-400">12.05.2023 10:15</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://via.placeholder.com/300x200?text=Snapshot+3" alt="Snapshot" class="w-full h-32 object-cover">
+                        <div class="p-2 text-xs text-gray-400">11.05.2023 18:45</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://via.placeholder.com/300x200?text=Snapshot+4" alt="Snapshot" class="w-full h-32 object-cover">
+                        <div class="p-2 text-xs text-gray-400">11.05.2023 08:20</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://via.placeholder.com/300x200?text=Snapshot+5" alt="Snapshot" class="w-full h-32 object-cover">
+                        <div class="p-2 text-xs text-gray-400">10.05.2023 22:10</div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Main Content -->
-        <div class="ml-64 p-8">
-            <div class="flex justify-between items-center mb-8">
-                <h1 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-tv mr-3 text-blue-600"></i>
-                    Camera Feed
-                </h1>
-                <div class="flex space-x-3">
-                    <button id="refresh-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center">
-                        <i class="fas fa-sync-alt mr-2"></i> Refresh
+        <!-- Guest Content -->
+        <div id="guestContent" class="flex flex-col items-center justify-center py-12 text-center">
+            <div class="max-w-md">
+                <i class="fas fa-camera text-6xl text-blue-500 mb-6"></i>
+                <h2 class="text-3xl font-bold mb-4">Відстежуйте ваші камери ESP32-CAM</h2>
+                <p class="text-gray-400 mb-8">Увійдіть у свій акаунт або зареєструйтеся, щоб отримати доступ до потокового відео та керування вашими камерами.</p>
+                <div class="flex space-x-4 justify-center">
+                    <button onclick="showAuthForm('login')" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-medium">
+                        Увійти
                     </button>
-                    <button class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center">
-                        <i class="fas fa-cog mr-2"></i> Settings
+                    <button onclick="showAuthForm('register')" class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg font-medium">
+                        Реєстрація
                     </button>
-                </div>
-            </div>
-            
-            <!-- Camera IP Configuration -->
-            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
-                <div class="p-4 border-b border-gray-200">
-                    <h2 class="font-medium text-gray-800 flex items-center">
-                        <i class="fas fa-server mr-2 text-blue-600"></i>
-                        Camera Configuration
-                    </h2>
-                </div>
-                
-                <div class="p-4">
-                    <div class="flex items-end space-x-4">
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">ESP32-CAM IP Address</label>
-                            <div class="flex">
-                                <input type="text" id="camera-ip" placeholder="http://192.168.50.112:81/stream" 
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                                <button id="connect-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700 transition">
-                                    Connect
-                                </button>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">Enter the local IP address of your ESP32-CAM</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Camera Feed Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Main Camera View -->
-                <div class="lg:col-span-2 bg-white rounded-xl shadow-md overflow-hidden">
-                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-                        <h2 class="font-medium text-gray-800 flex items-center">
-                            <i class="fas fa-camera mr-2 text-blue-600"></i>
-                            ESP32-CAM Live Feed
-                        </h2>
-                        <div class="flex items-center space-x-2">
-                            <span id="connection-status" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
-                                <span class="w-2 h-2 rounded-full bg-white mr-1"></span>
-                                Disconnected
-                            </span>
-                            <span class="text-xs text-gray-500">Last updated: <span id="last-update">Never</span></span>
-                        </div>
-                    </div>
-                    
-                    <div class="camera-feed aspect-video flex items-center justify-center relative">
-                        <img id="camera-image" src="" alt="Camera Feed" class="max-w-full max-h-full hidden">
-                        <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center hidden">
-                            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                        </div>
-                        <div id="error-message" class="hidden absolute inset-0 flex items-center justify-center bg-red-50">
-                            <div class="text-center p-4">
-                                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
-                                <p class="text-red-600 font-medium">Failed to load camera feed</p>
-                                <button id="retry-btn" class="mt-3 text-blue-600 hover:text-blue-800">Retry</button>
-                            </div>
-                        </div>
-                        <div id="disconnected-message" class="absolute inset-0 flex items-center justify-center bg-gray-50">
-                            <div class="text-center p-4">
-                                <i class="fas fa-plug text-gray-400 text-4xl mb-3"></i>
-                                <p class="text-gray-600 font-medium">Camera not connected</p>
-                                <p class="text-sm text-gray-500 mt-1">Enter your ESP32-CAM IP address above</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 border-t border-gray-200 flex justify-between items-center">
-                        <div class="flex space-x-2">
-                            <button class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
-                                <i class="fas fa-expand"></i>
-                            </button>
-                            <button id="capture-btn" class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-700">
-                                <i class="fas fa-video"></i>
-                            </button>
-                        </div>
-                        <div class="text-sm text-gray-600">
-                            <span id="resolution-display">Resolution: -</span> | <span id="fps-display">FPS: -</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Camera Controls -->
-                <div class="bg-white rounded-xl shadow-md overflow-hidden h-fit">
-                    <div class="p-4 border-b border-gray-200">
-                        <h2 class="font-medium text-gray-800 flex items-center">
-                            <i class="fas fa-sliders-h mr-2 text-blue-600"></i>
-                            Camera Controls
-                        </h2>
-                    </div>
-                    
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Brightness</label>
-                            <input type="range" min="-2" max="2" value="0" id="brightness-slider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Contrast</label>
-                            <input type="range" min="-2" max="2" value="0" id="contrast-slider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Resolution</label>
-                            <select id="resolution-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                                <option value="10">UXGA (1600x1200)</option>
-                                <option value="9">SXGA (1280x1024)</option>
-                                <option value="8">XGA (1024x768)</option>
-                                <option value="7">SVGA (800x600)</option>
-                                <option value="6">VGA (640x480)</option>
-                                <option value="5">CIF (400x296)</option>
-                                <option value="4" selected>QVGA (320x240)</option>
-                                <option value="3">HQVGA (240x176)</option>
-                                <option value="0">QQVGA (160x120)</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Quality</label>
-                            <select id="quality-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                                <option value="10">10 (Best)</option>
-                                <option value="9">9</option>
-                                <option value="8">8</option>
-                                <option value="7">7</option>
-                                <option value="6">6</option>
-                                <option value="5">5</option>
-                                <option value="4">4</option>
-                                <option value="3">3</option>
-                                <option value="2">2</option>
-                                <option value="1">1 (Worst)</option>
-                            </select>
-                        </div>
-                        
-                        <div class="pt-2">
-                            <button id="save-settings-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center">
-                                <i class="fas fa-save mr-2"></i> Save Settings
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Event Log -->
-                <div class="lg:col-span-3 bg-white rounded-xl shadow-md overflow-hidden mt-6">
-                    <div class="p-4 border-b border-gray-200">
-                        <h2 class="font-medium text-gray-800 flex items-center">
-                            <i class="fas fa-list-ul mr-2 text-blue-600"></i>
-                            Recent Events
-                        </h2>
-                    </div>
-                    
-                    <div class="divide-y divide-gray-200" id="event-log">
-                        <div class="p-4 flex items-start hover:bg-gray-50">
-                            <div class="bg-blue-100 text-blue-800 p-2 rounded-full mr-3">
-                                <i class="fas fa-info-circle text-sm"></i>
-                            </div>
-                            <div class="flex-1">
-                                <p class="font-medium">Welcome to ESP32-CAM Tracker</p>
-                                <p class="text-sm text-gray-600">System - Just now</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 border-t border-gray-200 text-center">
-                        <button class="text-blue-600 hover:text-blue-800 font-medium">View All Events</button>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // DOM Elements
-        const loginScreen = document.getElementById('login-screen');
-        const registerScreen = document.getElementById('register-screen');
-        const dashboard = document.getElementById('dashboard');
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-        const registerLink = document.getElementById('register-link');
-        const loginLink = document.getElementById('login-link');
-        const logoutBtn = document.getElementById('logout-btn');
-        const usernameDisplay = document.getElementById('username-display');
-        const cameraImage = document.getElementById('camera-image');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const errorMessage = document.getElementById('error-message');
-        const disconnectedMessage = document.getElementById('disconnected-message');
-        const lastUpdate = document.getElementById('last-update');
-        const connectionStatus = document.getElementById('connection-status');
-        const cameraIpInput = document.getElementById('camera-ip');
-        const connectBtn = document.getElementById('connect-btn');
-        const refreshBtn = document.getElementById('refresh-btn');
-        const retryBtn = document.getElementById('retry-btn');
-        const captureBtn = document.getElementById('capture-btn');
-        const saveSettingsBtn = document.getElementById('save-settings-btn');
-        const resolutionDisplay = document.getElementById('resolution-display');
-        const fpsDisplay = document.getElementById('fps-display');
-        const eventLog = document.getElementById('event-log');
+        // Check if user is logged in
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
         
-        // Camera settings elements
-        const brightnessSlider = document.getElementById('brightness-slider');
-        const contrastSlider = document.getElementById('contrast-slider');
-        const resolutionSelect = document.getElementById('resolution-select');
-        const qualitySelect = document.getElementById('quality-select');
-        
-        // Camera state
-        let cameraIp = '';
-        let isConnected = false;
-        let refreshInterval;
-        let lastUpdateTime = null;
-        
-        // Toggle between login and register screens
-        registerLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            loginScreen.classList.add('hidden');
-            registerScreen.classList.remove('hidden');
-            registerScreen.classList.add('flex');
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUI();
+            addSampleCameras();
+            
+            // Mobile menu toggle
+            document.getElementById('menuBtn').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('open');
+            });
         });
         
-        loginLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            registerScreen.classList.add('hidden');
-            loginScreen.classList.remove('hidden');
-            loginScreen.classList.add('flex');
-        });
+        // Add some sample cameras
+        function addSampleCameras() {
+            const cameraList = document.getElementById('cameraList');
+            
+            const cameras = [
+                { name: 'Вхідні двері', active: true },
+                { name: 'Двір', active: false },
+                { name: 'Гараж', active: false }
+            ];
+            
+            cameraList.innerHTML = '';
+            
+            cameras.forEach(camera => {
+                const cameraItem = document.createElement('a');
+                cameraItem.href = '#';
+                cameraItem.className = `flex items-center space-x-2 py-2 px-4 rounded-lg ${camera.active ? 'bg-gray-700' : 'hover:bg-gray-700'}`;
+                cameraItem.innerHTML = `
+                    <i class="fas ${camera.active ? 'fa-video text-green-500' : 'fa-video-slash text-gray-500'}"></i>
+                    <span>${camera.name}</span>
+                `;
+                cameraList.appendChild(cameraItem);
+            });
+        }
         
-        // Login handler
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+        // Update UI based on auth state
+        function updateUI() {
+            if (currentUser) {
+                document.getElementById('guestLinks').classList.add('hidden');
+                document.getElementById('userLinks').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('userName').textContent = currentUser.name;
+                document.getElementById('videoContent').classList.remove('hidden');
+                document.getElementById('guestContent').classList.add('hidden');
+                document.getElementById('statusText').textContent = `Вітаємо, ${currentUser.name}!`;
+            } else {
+                document.getElementById('guestLinks').classList.remove('hidden');
+                document.getElementById('userLinks').classList.add('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('videoContent').classList.add('hidden');
+                document.getElementById('guestContent').classList.remove('hidden');
+                document.getElementById('statusText').textContent = 'Будь ласка, увійдіть для перегляду';
+            }
+        }
+        
+        // Show auth form
+        function showAuthForm(formType) {
+            document.getElementById('authOverlay').classList.remove('hidden');
+            
+            if (formType === 'login') {
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            } else {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            }
+            
+            // Close mobile menu if open
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        
+        // Hide auth form
+        function hideAuthForm() {
+            document.getElementById('authOverlay').classList.add('hidden');
+        }
+        
+        // Login function
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
             
             // Simple validation
             if (!email || !password) {
-                alert('Please fill in all fields');
+                alert('Будь ласка, заповніть всі поля');
                 return;
             }
             
-            // Simulate login process
-            loginScreen.classList.add('hidden');
-            dashboard.classList.remove('hidden');
+            // Check if user exists
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const user = users.find(u => u.email === email && u.password === password);
             
-            // Set username
-            usernameDisplay.textContent = email.split('@')[0];
-            
-            // Add login event to log
-            addEventToLog('success', 'Login successful');
-        });
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                updateUI();
+                hideAuthForm();
+            } else {
+                alert('Невірний email або пароль');
+            }
+        }
         
-        // Register handler
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = document.getElementById('reg-name').value;
-            const email = document.getElementById('reg-email').value;
-            const password = document.getElementById('reg-password').value;
-            const confirm = document.getElementById('reg-confirm').value;
+        // Register function
+        function register() {
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
             
             // Simple validation
-            if (!name || !email || !password || !confirm) {
-                alert('Please fill in all fields');
+            if (!name || !email || !password || !confirmPassword) {
+                alert('Будь ласка, заповніть всі поля');
                 return;
             }
             
-            if (password !== confirm) {
-                alert('Passwords do not match');
+            if (password !== confirmPassword) {
+                alert('Паролі не співпадають');
                 return;
             }
             
-            // Simulate registration process
-            alert(`Account created for ${name}! You can now login.`);
-            registerScreen.classList.add('hidden');
-            loginScreen.classList.remove('hidden');
-            loginScreen.classList.add('flex');
+            // Check if user already exists
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const userExists = users.some(u => u.email === email);
             
-            // Pre-fill login form
-            document.getElementById('email').value = email;
-            document.getElementById('password').value = password;
-        });
-        
-        // Logout handler
-        logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Stop any ongoing camera refresh
-            stopCameraRefresh();
-            
-            dashboard.classList.add('hidden');
-            loginScreen.classList.remove('hidden');
-            loginScreen.classList.add('flex');
-            
-            // Clear form fields
-            document.getElementById('email').value = '';
-            document.getElementById('password').value = '';
-            
-            // Reset camera state
-            cameraIp = '';
-            isConnected = false;
-        });
-        
-        // Connect to camera handler
-        connectBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const ip = cameraIpInput.value.trim();
-            
-            if (!ip) {
-                alert('Please enter a valid IP address');
+            if (userExists) {
+                alert('Користувач з таким email вже існує');
                 return;
             }
             
-            // Validate IP address format (simple validation)
-            if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
-                alert('Please enter a valid IP address format (e.g. 192.168.1.100)');
-                return;
-            }
-            
-            cameraIp = ip;
-            connectToCamera();
-        });
-        
-        // Refresh camera feed handler
-        refreshBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (isConnected) {
-                updateCameraFeed();
-            }
-        });
-        
-        // Retry connection handler
-        retryBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (cameraIp) {
-                connectToCamera();
-            }
-        });
-        
-        // Capture image handler
-        captureBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (isConnected && cameraImage.src) {
-                // Create a temporary link to download the image
-                const link = document.createElement('a');
-                link.href = cameraImage.src;
-                link.download = `esp32-cam-capture-${new Date().toISOString().slice(0, 10)}.jpg`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                addEventToLog('info', 'Image captured and downloaded');
-            } else {
-                addEventToLog('warning', 'Cannot capture - camera not connected');
-            }
-        });
-        
-        // Save settings handler
-        saveSettingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!isConnected) {
-                addEventToLog('warning', 'Cannot save settings - camera not connected');
-                return;
-            }
-            
-            // In a real app, you would send these settings to the ESP32-CAM
-            const brightness = brightnessSlider.value;
-            const contrast = contrastSlider.value;
-            const resolution = resolutionSelect.value;
-            const quality = qualitySelect.value;
-            
-            // Simulate sending settings to camera
-            setTimeout(() => {
-                addEventToLog('success', `Camera settings updated (Brightness: ${brightness}, Contrast: ${contrast}, Resolution: ${resolutionSelect.options[resolutionSelect.selectedIndex].text}, Quality: ${quality})`);
-            }, 800);
-        });
-        
-        // Function to connect to camera
-        function connectToCamera() {
-            // Show loading state
-            loadingSpinner.classList.remove('hidden');
-            cameraImage.classList.add('hidden');
-            errorMessage.classList.add('hidden');
-            disconnectedMessage.classList.add('hidden');
-            
-            // Simulate connection delay
-            setTimeout(() => {
-                // 90% chance of success, 10% chance of error (for demo)
-                if (Math.random() > 0.1) {
-                    // Connection successful
-                    isConnected = true;
-                    connectionStatus.textContent = 'Connected';
-                    connectionStatus.classList.remove('bg-red-500');
-                    connectionStatus.classList.add('bg-green-500');
-                    
-                    // Start refreshing the feed
-                    startCameraRefresh();
-                    
-                    // Update UI
-                    disconnectedMessage.classList.add('hidden');
-                    
-                    // Add to event log
-                    addEventToLog('success', `Connected to ESP32-CAM at ${cameraIp}`);
-                } else {
-                    // Connection failed
-                    isConnected = false;
-                    connectionStatus.textContent = 'Connection failed';
-                    connectionStatus.classList.remove('bg-green-500');
-                    connectionStatus.classList.add('bg-red-500');
-                    
-                    // Show error
-                    loadingSpinner.classList.add('hidden');
-                    errorMessage.classList.remove('hidden');
-                    
-                    // Add to event log
-                    addEventToLog('error', `Failed to connect to ESP32-CAM at ${cameraIp}`);
-                }
-            }, 1500);
-        }
-        
-        // Function to start refreshing camera feed
-        function startCameraRefresh() {
-            // Initial update
-            updateCameraFeed();
-            
-            // Set up interval for refreshing (every 5 seconds)
-            refreshInterval = setInterval(updateCameraFeed, 5000);
-        }
-        
-        // Function to stop refreshing camera feed
-        function stopCameraRefresh() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-                refreshInterval = null;
-            }
-        }
-        
-        // Function to update camera feed
-        function updateCameraFeed() {
-            if (!isConnected) return;
-            
-            // Show loading state
-            loadingSpinner.classList.remove('hidden');
-            cameraImage.classList.add('hidden');
-            errorMessage.classList.add('hidden');
-            
-            // In a real app, this would fetch from your ESP32-CAM IP
-            // For demo purposes, we'll use a placeholder with timestamp to prevent caching
-            // Note: In a real implementation, you would use the actual camera IP like:
-            // cameraImage.src = `http://${cameraIp}/capture?_cb=${Date.now()}`;
-            
-            // Simulate network delay
-            setTimeout(() => {
-                // 85% chance of success, 15% chance of error (for demo)
-                if (Math.random() > 0.15) {
-                    // Success - update image
-                    cameraImage.src = `http://192.168.1.102:81/stream;
-                    cameraImage.onload = () => {
-                        loadingSpinner.classList.add('hidden');
-                        cameraImage.classList.remove('hidden');
-                        
-                        // Update timestamp
-                        lastUpdateTime = new Date();
-                        lastUpdate.textContent = 'Just now';
-                        
-                        // Update resolution display (simulated)
-                        const resText = resolutionSelect.options[resolutionSelect.selectedIndex].text;
-                        resolutionDisplay.textContent = `Resolution: ${resText.split(' ')[0]}`;
-                        fpsDisplay.textContent = `FPS: ${Math.floor(Math.random() * 10) + 5}`;
-                    };
-                    
-                    cameraImage.onerror = () => {
-                        // If image fails to load
-                        loadingSpinner.classList.add('hidden');
-                        errorMessage.classList.remove('hidden');
-                        addEventToLog('error', 'Failed to load camera feed');
-                    };
-                } else {
-                    // Error
-                    loadingSpinner.classList.add('hidden');
-                    errorMessage.classList.remove('hidden');
-                    addEventToLog('error', 'Failed to load camera feed');
-                }
-            }, 800);
-        }
-        
-        // Function to add events to the log
-        function addEventToLog(type, message) {
-            const colors = {
-                success: { bg: 'bg-green-100', text: 'text-green-800', icon: 'fa-check-circle' },
-                error: { bg: 'bg-red-100', text: 'text-red-800', icon: 'fa-exclamation-circle' },
-                warning: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: 'fa-exclamation-triangle' },
-                info: { bg: 'bg-blue-100', text: 'text-blue-800', icon: 'fa-info-circle' }
+            // Create new user
+            const newUser = {
+                id: Date.now(),
+                name,
+                email,
+                password
             };
             
-            const now = new Date();
-            const timeString = now.toLocaleTimeString();
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
             
-            const eventElement = document.createElement('div');
-            eventElement.className = 'p-4 flex items-start hover:bg-gray-50';
-            eventElement.innerHTML = `
-                <div class="${colors[type].bg} ${colors[type].text} p-2 rounded-full mr-3">
-                    <i class="fas ${colors[type].icon} text-sm"></i>
-                </div>
-                <div class="flex-1">
-                    <p class="font-medium">${message}</p>
-                    <p class="text-sm text-gray-600">System - ${timeString}</p>
-                </div>
-            `;
-            
-            // Add to top of log
-            eventLog.insertBefore(eventElement, eventLog.firstChild);
-            
-            // Limit log to 20 items
-            if (eventLog.children.length > 20) {
-                eventLog.removeChild(eventLog.lastChild);
-            }
+            // Auto login
+            currentUser = newUser;
+            localStorage.setItem('currentUser', JSON.stringify(newUser));
+            updateUI();
+            hideAuthForm();
         }
         
-        // Add animation to login/register forms when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            const forms = document.querySelectorAll('form');
-            forms.forEach((form, index) => {
-                form.style.animationDelay = `${index * 0.1}s`;
-            });
-        });
+        // Logout function
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            updateUI();
+        }
     </script>
 </body>
 </html>
